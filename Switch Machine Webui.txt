@@ -1,0 +1,78 @@
+//PURPOSE OF SCRIPT
+//Create webpage
+//Count number of presses and presses per minute for button connected to pin D2.
+//Output this to web page
+
+//Hardware is Wemos D1 Mini
+
+
+// Include libraries 
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Set up the ESP32 webserver
+WebServer server(80);
+
+// Set up a variable to count the number of button presses
+int buttonPresses = 0;
+
+// Set up a variable to count the number of presses per minute
+int pressesPerMin = 0;
+
+// Set up the pins
+#define BUTTON_PIN D2
+
+// Create a function to handle the button press
+void handleButtonPress() {
+  buttonPresses++; // Increment the button presses
+  pressesPerMin++; // Increment the presses per minute
+}
+
+// Setup the ESP32
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to the wifi
+  WiFi.begin("ssid", "password");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+
+  Serial.println("Connected to the WiFi network");
+
+  // Print the IP address
+  Serial.println(WiFi.localIP());
+
+  // Set up the button pin
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  // Set up the web server
+  server.on("/", [](){
+    String response = "Button presses: " + String(buttonPresses) + "&lt;br&gt;Presses per minute: " + String(pressesPerMin);
+    server.send(200, "text/plain", response);
+  });
+
+  server.begin();
+  Serial.println("Server started");
+
+  // Attach an interrupt to the button pin
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButtonPress, RISING);
+
+  // Set up a timer to reset the presses per minute
+  timer1_isr_init();
+  timer1_attachInterrupt(resetPressesPerMin);
+  timer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  timer1_write(60000);
+}
+
+// Reset the presses per minute
+void resetPressesPerMin() {
+  pressesPerMin = 0;
+}
+
+// Main loop
+void loop() {
+  server.handleClient();
+}
